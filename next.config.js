@@ -93,9 +93,6 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
-
-  // Output configuration for standalone deployment
-  output: 'standalone',
 }
 
 module.exports = nextConfig
