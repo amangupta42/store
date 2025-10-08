@@ -2,17 +2,16 @@ import '../styles/globals.css'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Layout from '../layouts/layout'
-import fetchCategories from '../utils/categoryProvider'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { ContextProviderComponent } from '../context/mainContext'
 
-function Ecommerce({ Component, pageProps, categories }) {
+function Ecommerce({ Component, pageProps }) {
   const router = useRouter()
 
   return (
     <ContextProviderComponent>
       <ErrorBoundary>
-        <Layout categories={categories}>
+        <Layout>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={router.asPath}
@@ -28,13 +27,6 @@ function Ecommerce({ Component, pageProps, categories }) {
       </ErrorBoundary>
     </ContextProviderComponent>
   )
-}
-
-Ecommerce.getInitialProps = async () => {
-  const categories = await fetchCategories()
-  return {
-    categories
-  }
 }
 
 export default Ecommerce

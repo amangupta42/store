@@ -6,13 +6,13 @@ import Image from '../../components/Image'
 import QuantityPicker from '../../components/QuantityPicker'
 import { fetchInventory } from '../../utils/inventoryProvider'
 import { slugify } from '../../utils/helpers'
-import { SiteContext, ContextProviderComponent } from '../../context/mainContext'
+import { useCart } from '../../context/mainContext'
 
 const ItemView = (props) => {
   const [numberOfitems, updateNumberOfItems] = useState(1)
   const { product } = props
   const { price, image, name, description } = product
-  const { context: { addToCart }} = props
+  const { addToCart } = useCart()
 
   function addItemToCart (product) {
     product["quantity"] = numberOfitems
@@ -119,16 +119,4 @@ export async function getStaticProps ({ params }) {
   }
 }
 
-function ItemViewWithContext(props) {
-  return (
-    <ContextProviderComponent>
-      <SiteContext.Consumer>
-        {
-          context => <ItemView {...props} context={context} />
-        }
-      </SiteContext.Consumer>
-    </ContextProviderComponent>
-  )
-}
-
-export default ItemViewWithContext
+export default ItemView

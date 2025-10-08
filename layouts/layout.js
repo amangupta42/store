@@ -1,11 +1,24 @@
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { slugify } from '../utils/helpers'
 import 'react-toastify/dist/ReactToastify.css'
 import { ToastContainer } from 'react-toastify'
 import { navItemLength } from '../ecommerce.config'
 import CartLink from '../components/CartLink'
+import fetchCategories from '../utils/categoryProvider'
 
-export default function Layout({ children, categories = [] }) {
+export default function Layout({ children }) {
+  const [categories, setCategories] = useState([])
+
+  useEffect(() => {
+    // Fetch categories on mount
+    async function loadCategories() {
+      const fetchedCategories = await fetchCategories()
+      setCategories(fetchedCategories)
+    }
+    loadCategories()
+  }, [])
+
   // Ensure categories is always an array and limit to navItemLength
   const displayCategories = categories.slice(0, navItemLength)
 

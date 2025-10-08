@@ -2,21 +2,23 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FaTimes, FaLongArrowAltRight } from 'react-icons/fa'
-import { SiteContext, ContextProviderComponent } from '../context/mainContext'
+import { useCart } from '../context/mainContext'
 import DENOMINATION from '../utils/currencyProvider'
 import { slugify } from '../utils/helpers'
 import QuantityPicker from '../components/QuantityPicker'
 import Image from '../components/Image'
 import Head from 'next/head'
 
-const Cart = ({ context }) => {
+const Cart = () => {
   const [renderClientSideComponent, setRenderClientSideComponent] = useState(false)
+  const {
+    numberOfItemsInCart, cart, removeFromCart, total, setItemQuantity
+  } = useCart()
+
   useEffect(() => {
     setRenderClientSideComponent(true)
   }, [])
-  const {
-    numberOfItemsInCart, cart, removeFromCart, total, setItemQuantity
-  } = context
+
   const cartEmpty = numberOfItemsInCart === Number(0)
 
   function increment(item) {
@@ -185,17 +187,4 @@ const Cart = ({ context }) => {
   )
 }
 
-function CartWithContext(props) {
-  return (
-    <ContextProviderComponent>
-      <SiteContext.Consumer>
-        {
-          context => <Cart {...props} context={context} />
-        }
-      </SiteContext.Consumer>
-    </ContextProviderComponent>
-  )
-}
-
-
-export default CartWithContext
+export default Cart
