@@ -2,7 +2,6 @@ import Head from 'next/head'
 import { motion } from 'framer-motion'
 import ListItem from '../../components/ListItem'
 import { titleIfy, slugify } from '../../utils/helpers'
-import fetchCategories from '../../utils/categoryProvider'
 import inventoryForCategory from '../../utils/inventoryForCategory'
 
 const Category = (props) => {
@@ -56,20 +55,17 @@ const Category = (props) => {
   )
 }
 
-export async function getStaticPaths () {
-  const categories = await fetchCategories()
-  const paths = categories.map(category => {
-    return { params: { name: slugify(category) }}
-  })
-  return {
-    paths,
-    fallback: false
-  }
-}
-
-export async function getStaticProps ({ params }) {
+export async function getServerSideProps ({ params }) {
   const category = params.name.replace(/-/g," ")
   const inventory = await inventoryForCategory(category)
+
+  // Return 404 if category doesn't exist or has no items
+  if (!inventory || inventory.length === 0) {
+    return {
+      notFound: true
+    }
+  }
+
   return {
     props: {
       inventory,

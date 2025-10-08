@@ -1,4 +1,5 @@
 import inventory from './inventory'
+import { slugify } from './helpers'
 
 /*
 Inventory items should adhere to the following schema:
@@ -16,8 +17,21 @@ type Product {
 */
 
 async function fetchInventory() {
-  // const inventory = API.get(apiUrl)
-  return Promise.resolve(inventory)
+  // Ensure each item has a stable ID based on its name
+  // This prevents hydration mismatches from runtime UUID generation
+  const inventoryWithIds = inventory.map((item) => {
+    if (!item.id || item.id.includes('-')) {
+      // If ID doesn't exist or contains dashes (indicating it might be unstable),
+      // use slugified name as stable ID
+      return {
+        ...item,
+        id: slugify(item.name)
+      }
+    }
+    return item
+  })
+
+  return Promise.resolve(inventoryWithIds)
 }
 
 export {

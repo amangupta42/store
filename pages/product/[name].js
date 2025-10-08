@@ -96,21 +96,17 @@ const ItemView = (props) => {
   )
 }
 
-export async function getStaticPaths () {
-  const inventory = await fetchInventory()
-  const paths = inventory.map(item => {
-    return { params: { name: slugify(item.name) }}
-  })
-  return {
-    paths,
-    fallback: false
-  }
-}
-
-export async function getStaticProps ({ params }) {
+export async function getServerSideProps ({ params }) {
   const name = params.name.replace(/-/g," ")
   const inventory = await fetchInventory()
   const product = inventory.find(item => slugify(item.name) === slugify(name))
+
+  // Return 404 if product not found
+  if (!product) {
+    return {
+      notFound: true
+    }
+  }
 
   return {
     props: {

@@ -135,9 +135,9 @@ const Home = ({ inventoryData = [], categories: categoryData = [] }) => {
   )
 }
 
-export async function getStaticProps() {
+export async function getServerSideProps() {
   const inventory = await fetchInventory()
-  
+
   const inventoryCategorized = inventory.reduce((acc, next) => {
     const categories = next.categories
     categories.forEach(c => {
@@ -157,7 +157,7 @@ export async function getStaticProps() {
     })
     return acc
   }, [])
-  
+
   return {
     props: {
       inventoryData: inventory,

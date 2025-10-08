@@ -48,7 +48,7 @@ function Categories ({ categories = [] }) {
   )
 }
 
-export async function getStaticProps() {
+export async function getServerSideProps() {
   const inventory = await fetchInventory()
   const inventoryCategories = inventory.reduce((acc, next) => {
     const categories = next.categories
