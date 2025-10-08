@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
-import { ContextProviderComponent, SiteContext } from '../context/mainContext'
-import { FaShoppingCart, FaCircle } from 'react-icons/fa';
+import { useCart } from '../context/mainContext'
+import { FaShoppingCart } from 'react-icons/fa';
 import Link from "next/link"
-import { colors } from '../theme'
-const { primary } = colors
 
-function CartLink(props) {
+function CartLink() {
   const [renderClientSideComponent, setRenderClientSideComponent] = useState(false)
+  const { numberOfItemsInCart = 0 } = useCart()
+
   useEffect(() => {
     setRenderClientSideComponent(true)
   }, [])
-  let { context: { numberOfItemsInCart = 0 }} = props
+
   return (
     <Link href="/cart">
       <a
@@ -31,16 +31,4 @@ function CartLink(props) {
   )
 }
 
-function CartLinkWithContext(props) {
-  return (
-    <ContextProviderComponent>
-      <SiteContext.Consumer>
-        {
-          context => <CartLink {...props} context={context} />
-        }
-      </SiteContext.Consumer>
-    </ContextProviderComponent>
-  )
-}
-
-export default CartLinkWithContext
+export default CartLink

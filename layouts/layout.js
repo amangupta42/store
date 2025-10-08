@@ -5,10 +5,10 @@ import { ToastContainer } from 'react-toastify'
 import { navItemLength } from '../ecommerce.config'
 import CartLink from '../components/CartLink'
 
-export default function Layout({ children, categories }) {
-  if (categories.length > navItemLength) {
-    categories = categories.slice(0, navItemLength)
-  }
+export default function Layout({ children, categories = [] }) {
+  // Ensure categories is always an array and limit to navItemLength
+  const displayCategories = categories.slice(0, navItemLength)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative">
       <CartLink />
@@ -44,7 +44,7 @@ export default function Layout({ children, categories }) {
                 </a>
               </Link>
               {
-                categories.map((category, index) => (
+                displayCategories.map((category, index) => (
                   <Link
                     href={`/category/${slugify(category)}`}
                     key={index}
