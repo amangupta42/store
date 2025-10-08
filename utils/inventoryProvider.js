@@ -20,9 +20,8 @@ async function fetchInventory() {
   // Ensure each item has a stable ID based on its name
   // This prevents hydration mismatches from runtime UUID generation
   const inventoryWithIds = inventory.map((item) => {
-    if (!item.id || item.id.includes('-')) {
-      // If ID doesn't exist or contains dashes (indicating it might be unstable),
-      // use slugified name as stable ID
+    if (!item.id) {
+      // If ID doesn't exist, use slugified name as stable ID
       return {
         ...item,
         id: slugify(item.name)
