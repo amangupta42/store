@@ -1,9 +1,0 @@
-node_modules
-.next
-out
-build
-public
-.vercel
-.serverless
-*.min.js
-*.min.css
