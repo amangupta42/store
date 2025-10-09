@@ -33,9 +33,9 @@ export async function GET(request: Request) {
     })
 
     // Transform the data to include category names
-    const transformedProducts = products.map((product: { categories: any[] }) => ({
+    const transformedProducts = products.map((product: (typeof products)[number]) => ({
       ...product,
-      categories: product.categories.map((pc) => pc.category),
+      categories: product.categories.map((pc: (typeof product.categories)[number]) => pc.category),
     }))
 
     return NextResponse.json(transformedProducts)

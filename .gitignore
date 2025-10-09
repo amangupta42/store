@@ -70,3 +70,6 @@ next-env.d.ts
 # sentry
 .sentryclirc
 CLAUDE.md
+.env
+.env.local
+.env.*.local

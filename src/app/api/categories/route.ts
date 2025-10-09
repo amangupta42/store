@@ -17,7 +17,7 @@ export async function GET() {
     })
 
     // Transform to include product count
-    const transformedCategories = categories.map((category: { _count: { products: any } }) => ({
+    const transformedCategories = categories.map((category: (typeof categories)[number]) => ({
       ...category,
       productCount: category._count.products,
     }))
