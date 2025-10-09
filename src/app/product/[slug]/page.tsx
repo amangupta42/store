@@ -115,11 +115,10 @@ export default function ProductPage() {
                 setIsWishlisted(!isWishlisted)
                 toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist")
               }}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors ${
-                isWishlisted
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors ${isWishlisted
                   ? 'bg-red-50 border-red-300 text-red-600'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600'
-              }`}
+                }`}
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
               Wishlist
@@ -278,11 +277,10 @@ export default function ProductPage() {
               </div>
               <div className="flex justify-between items-center">
                 <dt className="text-gray-600 font-medium">Availability</dt>
-                <dd className={`font-semibold px-3 py-1 rounded-lg ${
-                  product.stock > 0
+                <dd className={`font-semibold px-3 py-1 rounded-lg ${product.stock > 0
                     ? 'text-green-700 bg-green-50 border border-green-200'
                     : 'text-red-700 bg-red-50 border border-red-200'
-                }`}>
+                  }`}>
                   {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
                 </dd>
               </div>
