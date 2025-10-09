@@ -7,12 +7,33 @@ import QuantityPicker from '../../components/QuantityPicker'
 import { fetchInventory } from '../../utils/inventoryProvider'
 import { slugify } from '../../utils/helpers'
 import { useCart } from '../../context/mainContext'
+import { logDataFetch, logError, debugLog } from '../../utils/debug'
 
 const ItemView = (props) => {
   const [numberOfitems, updateNumberOfItems] = useState(1)
   const { product } = props
-  const { price, image, name, description } = product
   const { addToCart } = useCart()
+
+  // Defensive check for missing product data
+  if (!product) {
+    debugLog('Product page: No product data', { props })
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center">
+        <Head>
+          <title>Product Not Found</title>
+          <meta name="description" content="Product not found" />
+        </Head>
+        <div className="text-center px-4">
+          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Product Not Found
+          </h1>
+          <p className="text-gray-600">This product does not exist or has been removed.</p>
+        </div>
+      </div>
+    )
+  }
+
+  const { price, image, name, description } = product
 
   function addItemToCart (product) {
     product["quantity"] = numberOfitems
@@ -97,20 +118,69 @@ const ItemView = (props) => {
 }
 
 export async function getServerSideProps ({ params }) {
-  const name = params.name.replace(/-/g," ")
-  const inventory = await fetchInventory()
-  const product = inventory.find(item => slugify(item.name) === slugify(name))
+  try {
+    debugLog('Product page getServerSideProps called', { params })
 
-  // Return 404 if product not found
-  if (!product) {
+    if (!params || !params.name) {
+      logError('Product page getServerSideProps', new Error('Missing params or product name'), {
+        params
+      })
+      return {
+        notFound: true
+      }
+    }
+
+    const name = params.name.replace(/-/g," ")
+    debugLog('Fetching product', { name, slug: params.name })
+
+    const inventory = await fetchInventory()
+
+    logDataFetch('Product Page', 'fetchInventory', inventory)
+
+    if (!Array.isArray(inventory) || inventory.length === 0) {
+      logError('Product page getServerSideProps', new Error('Invalid or empty inventory'), {
+        inventoryType: typeof inventory,
+        isArray: Array.isArray(inventory),
+        length: inventory?.length || 0
+      })
+      return {
+        notFound: true
+      }
+    }
+
+    const product = inventory.find(item => slugify(item.name) === slugify(name))
+
+    // Return 404 if product not found
+    if (!product) {
+      debugLog('Product not found', {
+        name,
+        slug: params.name,
+        inventoryCount: inventory.length
+      })
+      return {
+        notFound: true
+      }
+    }
+
+    debugLog('Product page data prepared', {
+      productName: product.name,
+      productId: product.id
+    })
+
+    return {
+      props: {
+        product,
+      }
+    }
+  } catch (error) {
+    logError('Product page getServerSideProps', error, {
+      params,
+      message: 'Failed to fetch product data'
+    })
+
+    // Return 404 instead of crashing
     return {
       notFound: true
-    }
-  }
-
-  return {
-    props: {
-      product,
     }
   }
 }
