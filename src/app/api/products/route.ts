@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     })
 
     // Transform the data to include category names
-    const transformedProducts = products.map((product) => ({
+    const transformedProducts = products.map((product: { categories: any[] }) => ({
       ...product,
       categories: product.categories.map((pc) => pc.category),
     }))

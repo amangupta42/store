@@ -5,12 +5,17 @@ import { useCategories } from '@/hooks/use-products'
 import { useCartStore } from '@/store/cart-store'
 import { ShoppingCart, Menu, X, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function Header() {
   const { data: categories } = useCategories()
   const itemCount = useCartStore((state) => state.getItemCount())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50 border-b border-gray-100">
@@ -74,18 +79,20 @@ export function Header() {
             >
               <ShoppingCart className="w-5 h-5" />
               <span className="font-medium">Cart</span>
-              <AnimatePresence>
-                {itemCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md"
-                  >
-                    {itemCount}
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              {mounted && (
+                <AnimatePresence>
+                  {itemCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="bg-white text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md"
+                    >
+                      {itemCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              )}
             </motion.div>
           </Link>
         </div>
@@ -123,7 +130,7 @@ export function Header() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium text-center mt-2"
               >
-                Cart {itemCount > 0 && `(${itemCount})`}
+                Cart {mounted && itemCount > 0 && `(${itemCount})`}
               </Link>
             </div>
           </motion.div>
