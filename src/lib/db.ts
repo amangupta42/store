@@ -6,8 +6,13 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  // Check if we're using Turso (libsql://) or local SQLite (file:)
-  const databaseUrl = process.env.DATABASE_URL || ''
+  // Support both DATABASE_URL and TURSO_DATABASE_URL/TURSO_AUTH_TOKEN
+  let databaseUrl = process.env.DATABASE_URL || ''
+
+  // If using Vercel Turso integration, construct URL from separate env vars
+  if (!databaseUrl && process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+    databaseUrl = `${process.env.TURSO_DATABASE_URL}?authToken=${process.env.TURSO_AUTH_TOKEN}`
+  }
 
   if (databaseUrl.startsWith('libsql://')) {
     // Turso/libSQL configuration

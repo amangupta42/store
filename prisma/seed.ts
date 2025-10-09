@@ -1,6 +1,31 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { createClient } from '@libsql/client'
 
-const prisma = new PrismaClient()
+// Create Prisma client with Turso support
+function createPrismaClient() {
+  // Support both DATABASE_URL and TURSO_DATABASE_URL/TURSO_AUTH_TOKEN
+  let databaseUrl = process.env.DATABASE_URL || ''
+
+  // If using Vercel Turso integration, construct URL from separate env vars
+  if (!databaseUrl && process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+    databaseUrl = `${process.env.TURSO_DATABASE_URL}?authToken=${process.env.TURSO_AUTH_TOKEN}`
+  }
+
+  if (databaseUrl.startsWith('libsql://')) {
+    // Turso/libSQL configuration
+    const adapter = new PrismaLibSQL({ url: databaseUrl })
+
+    return new PrismaClient({
+      adapter,
+    })
+  } else {
+    // Local SQLite configuration
+    return new PrismaClient()
+  }
+}
+
+const prisma = createPrismaClient()
 
 const categories = [
   { name: 'Sofas', slug: 'sofas', image: '/categories/sofas.jpg' },
