@@ -4,12 +4,20 @@ import { createClient } from '@libsql/client'
 
 // Create Prisma client with Turso support
 function createPrismaClient() {
-  // Support both DATABASE_URL and TURSO_DATABASE_URL/TURSO_AUTH_TOKEN
+  // Support multiple Turso configuration methods
   let databaseUrl = process.env.DATABASE_URL || ''
 
-  // If using Vercel Turso integration, construct URL from separate env vars
-  if (!databaseUrl && process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+  // Vercel Turso integration uses DATABASE_TURSO_DATABASE_URL and DATABASE_TURSO_AUTH_TOKEN
+  if (process.env.DATABASE_TURSO_DATABASE_URL && process.env.DATABASE_TURSO_AUTH_TOKEN) {
+    databaseUrl = `${process.env.DATABASE_TURSO_DATABASE_URL}?authToken=${process.env.DATABASE_TURSO_AUTH_TOKEN}`
+  }
+  // Also support TURSO_DATABASE_URL/TURSO_AUTH_TOKEN format
+  else if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
     databaseUrl = `${process.env.TURSO_DATABASE_URL}?authToken=${process.env.TURSO_AUTH_TOKEN}`
+  }
+  // Or use DIRECT_URL if DATABASE_URL doesn't have auth token
+  else if (databaseUrl.startsWith('libsql://') && !databaseUrl.includes('authToken') && process.env.DIRECT_URL) {
+    databaseUrl = process.env.DIRECT_URL
   }
 
   if (databaseUrl.startsWith('libsql://')) {
