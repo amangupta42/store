@@ -60,7 +60,7 @@ export default function ProductPage() {
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Product not found</h2>
           <p className="text-gray-600 mb-8">
-            The product you're looking for doesn't exist.
+            The product you&apos;re looking for doesn&apos;t exist.
           </p>
           <Link
             href="/"
@@ -113,7 +113,7 @@ export default function ProductPage() {
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setIsWishlisted(!isWishlisted)
-                toast.success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
+                toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist")
               }}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-colors ${
                 isWishlisted

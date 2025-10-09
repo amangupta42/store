@@ -1,6 +1,6 @@
 'use client'
 
-import { useProducts } from '@/hooks/use-products'
+import { useProducts, Product } from '@/hooks/use-products'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -12,7 +12,7 @@ export default function Home() {
   const { data: products, isLoading, error } = useProducts()
   const addItem = useCartStore((state) => state.addItem)
 
-  const handleQuickAdd = (e: React.MouseEvent, product: any) => {
+  const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
     addItem({

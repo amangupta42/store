@@ -1,6 +1,6 @@
 'use client'
 
-import { useProducts, useCategories } from '@/hooks/use-products'
+import { useProducts, useCategories, Product } from '@/hooks/use-products'
 import { useCartStore } from '@/store/cart-store'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -20,7 +20,7 @@ export default function CategoryPage() {
   // Find current category name
   const currentCategory = categories?.find(cat => cat.slug === slug)
 
-  const handleQuickAdd = (e: React.MouseEvent, product: any) => {
+  const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
     addItem({

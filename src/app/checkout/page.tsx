@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 export default function CheckoutPage() {
   const { items, getTotal, clearCart } = useCartStore()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
+  // Remove unused state variables
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
