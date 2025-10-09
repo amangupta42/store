@@ -117,7 +117,12 @@ const ItemView = (props) => {
   )
 }
 
-export async function getServerSideProps ({ params }) {
+export async function getServerSideProps ({ params, res }) {
+  // Set cache control headers to prevent caching
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+
   try {
     debugLog('Product page getServerSideProps called', { params })
 

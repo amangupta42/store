@@ -18,7 +18,9 @@ const isDebugEnabled = () => {
 
 export const debugLog = (...args) => {
   if (isDebugEnabled()) {
-    console.log('[DEBUG]', ...args)
+    // Use console.warn instead of console.log so it appears in production
+    // (next.config.js removes console.log but keeps console.warn)
+    console.warn('[DEBUG]', ...args)
   }
 }
 
@@ -35,7 +37,7 @@ export const debugWarn = (...args) => {
 
 export const debugInfo = (category, data) => {
   if (isDebugEnabled()) {
-    console.log(`[INFO:${category}]`, data)
+    console.warn(`[INFO:${category}]`, data)
   }
 }
 
@@ -43,10 +45,10 @@ export const debugInfo = (category, data) => {
 export const logDataFetch = (page, operation, data) => {
   if (isDebugEnabled()) {
     console.group(`[DATA FETCH] ${page}`)
-    console.log('Operation:', operation)
-    console.log('Data:', data)
-    console.log('Data length:', Array.isArray(data) ? data.length : 'N/A')
-    console.log('Timestamp:', new Date().toISOString())
+    console.warn('Operation:', operation)
+    console.warn('Data:', data)
+    console.warn('Data length:', Array.isArray(data) ? data.length : 'N/A')
+    console.warn('Timestamp:', new Date().toISOString())
     console.groupEnd()
   }
 }
@@ -66,12 +68,12 @@ export const logError = (context, error, additionalInfo = {}) => {
 if (typeof window !== 'undefined') {
   window.enableDebug = () => {
     localStorage.setItem('debug', 'true')
-    console.log('[DEBUG] Debug mode enabled. Reload the page to see debug logs.')
+    console.warn('[DEBUG] Debug mode enabled. Reload the page to see debug logs.')
   }
 
   window.disableDebug = () => {
     localStorage.removeItem('debug')
-    console.log('[DEBUG] Debug mode disabled. Reload the page.')
+    console.warn('[DEBUG] Debug mode disabled. Reload the page.')
   }
 }
 
