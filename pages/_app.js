@@ -1,28 +1,29 @@
 import '../styles/globals.css'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Layout from '../layouts/layout'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { ContextProviderComponent } from '../context/mainContext'
+import { useEffect } from 'react'
 
 function Ecommerce({ Component, pageProps }) {
   const router = useRouter()
+
+  // Scroll to top on route change
+  useEffect(() => {
+    const handleRouteChange = () => {
+      window.scrollTo(0, 0)
+    }
+    router.events.on('routeChangeComplete', handleRouteChange)
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange)
+    }
+  }, [router.events])
 
   return (
     <ContextProviderComponent>
       <ErrorBoundary>
         <Layout>
-          <AnimatePresence initial={false} onExitComplete={() => window.scrollTo(0, 0)}>
-            <motion.div
-              key={router.asPath}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Component {...pageProps} />
-            </motion.div>
-          </AnimatePresence>
+          <Component {...pageProps} key={router.asPath} />
         </Layout>
       </ErrorBoundary>
     </ContextProviderComponent>
