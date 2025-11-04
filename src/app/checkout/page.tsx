@@ -152,6 +152,31 @@ export default function CheckoutPage() {
   }
 
   const handlePaymentSuccess = () => {
+    // Store order details in sessionStorage for success page
+    const orderDetails = {
+      items: items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      })),
+      subtotal,
+      tax,
+      total,
+      email: formData.email,
+      shippingAddress: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+      },
+      orderDate: new Date().toISOString(),
+    }
+
+    sessionStorage.setItem('lastOrder', JSON.stringify(orderDetails))
     clearCart()
     toast.success('Payment successful! Redirecting...')
   }
@@ -233,12 +258,14 @@ export default function CheckoutPage() {
                       id="email"
                       name="email"
                       required
+                      maxLength={100}
                       value={formData.email}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.email ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
                       placeholder="you@example.com"
+                      autoComplete="email"
                     />
                     {formErrors.email && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
@@ -271,11 +298,14 @@ export default function CheckoutPage() {
                       id="firstName"
                       name="firstName"
                       required
+                      maxLength={50}
                       value={formData.firstName}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.firstName ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
+                      placeholder="John"
+                      autoComplete="given-name"
                     />
                     {formErrors.firstName && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.firstName}</p>
@@ -290,11 +320,14 @@ export default function CheckoutPage() {
                       id="lastName"
                       name="lastName"
                       required
+                      maxLength={50}
                       value={formData.lastName}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.lastName ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
+                      placeholder="Doe"
+                      autoComplete="family-name"
                     />
                     {formErrors.lastName && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.lastName}</p>
@@ -309,11 +342,14 @@ export default function CheckoutPage() {
                       id="address"
                       name="address"
                       required
+                      maxLength={200}
                       value={formData.address}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.address ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
+                      placeholder="123 Main St, Apt 4B"
+                      autoComplete="street-address"
                     />
                     {formErrors.address && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.address}</p>
@@ -328,11 +364,14 @@ export default function CheckoutPage() {
                       id="city"
                       name="city"
                       required
+                      maxLength={100}
                       value={formData.city}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.city ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
+                      placeholder="New York"
+                      autoComplete="address-level2"
                     />
                     {formErrors.city && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
@@ -347,11 +386,14 @@ export default function CheckoutPage() {
                       id="state"
                       name="state"
                       required
+                      maxLength={50}
                       value={formData.state}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.state ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
+                      placeholder="NY"
+                      autoComplete="address-level1"
                     />
                     {formErrors.state && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>
@@ -366,12 +408,15 @@ export default function CheckoutPage() {
                       id="zipCode"
                       name="zipCode"
                       required
+                      maxLength={10}
+                      pattern="^\d{5}(-\d{4})?$"
                       value={formData.zipCode}
                       onChange={handleInputChange}
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
                         formErrors.zipCode ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
                       }`}
-                      placeholder="12345"
+                      placeholder="12345 or 12345-6789"
+                      autoComplete="postal-code"
                     />
                     {formErrors.zipCode && (
                       <p className="text-red-500 text-sm mt-1">{formErrors.zipCode}</p>
