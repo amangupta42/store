@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { CART_STORAGE_KEY } from '@/lib/constants'
 
 export interface CartItem {
   id: string
   name: string
-  price: string
+  price: number
   image: string
   quantity: number
   slug: string
@@ -70,7 +71,7 @@ export const useCartStore = create<CartStore>()(
 
       getTotal: () => {
         return get().items.reduce((total, item) => {
-          return total + parseFloat(item.price) * item.quantity
+          return total + item.price * item.quantity
         }, 0)
       },
 
@@ -79,7 +80,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'ecommerce-cart',
+      name: CART_STORAGE_KEY,
     }
   )
 )

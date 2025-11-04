@@ -3,15 +3,24 @@
 import { useCartStore } from '@/store/cart-store'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
-import { ShoppingBag, CreditCard, Truck, Lock, CheckCircle, ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ShoppingBag, Truck, ArrowRight, Tag, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
+import { TAX_RATE, SHIPPING_COST } from '@/lib/constants'
+import { Elements } from '@stripe/react-stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
+import CheckoutForm from '@/components/CheckoutForm'
+import { checkoutFormSchema } from '@/lib/validations'
+import { z } from 'zod'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 export default function CheckoutPage() {
   const { items, getTotal, clearCart } = useCartStore()
-  const [isProcessing, setIsProcessing] = useState(false)
-  // Remove unused state variables
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [isLoadingIntent, setIsLoadingIntent] = useState(false)
+  const [stockError, setStockError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -20,30 +29,131 @@ export default function CheckoutPage() {
     city: '',
     state: '',
     zipCode: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
   })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [formSubmitted, setFormSubmitted] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    })
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }))
+    // Clear error for this field
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsProcessing(true)
+  const checkStock = async () => {
+    try {
+      const response = await fetch('/api/products/check-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(item => ({ id: item.id, quantity: item.quantity })),
+        }),
+      })
 
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false)
-      toast.success('Order placed successfully!')
-      clearCart()
-      // In a real app, you would redirect to a success page
-      window.location.href = '/'
-    }, 2000)
+      const data = await response.json()
+
+      if (!data.available) {
+        const issueMessages = data.issues.map(
+          (issue: { name: string; available: number; requested: number }) =>
+            `${issue.name}: ${issue.available} available (you requested ${issue.requested})`
+        )
+        setStockError(`Some items are out of stock:\n${issueMessages.join('\n')}`)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Stock check error:', error)
+      toast.error('Failed to verify stock availability')
+      return false
+    }
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormErrors({})
+    setStockError(null)
+
+    // Validate form
+    try {
+      checkoutFormSchema.parse(formData)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errors: Record<string, string> = {}
+        error.errors.forEach(err => {
+          if (err.path[0]) {
+            errors[err.path[0].toString()] = err.message
+          }
+        })
+        setFormErrors(errors)
+        toast.error('Please fix the form errors')
+        return
+      }
+    }
+
+    // Check stock
+    const stockAvailable = await checkStock()
+    if (!stockAvailable) {
+      return
+    }
+
+    setIsLoadingIntent(true)
+
+    try {
+      const subtotal = getTotal()
+      const tax = subtotal * TAX_RATE
+      const total = subtotal + tax + SHIPPING_COST
+
+      // Create payment intent
+      const response = await fetch('/api/stripe/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: total,
+          email: formData.email,
+          metadata: {
+            ...formData,
+            items: JSON.stringify(
+              items.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+              }))
+            ),
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create payment intent')
+      }
+
+      const data = await response.json()
+      setClientSecret(data.clientSecret)
+      setFormSubmitted(true)
+      toast.success('Ready to pay!')
+    } catch (error) {
+      console.error('Payment intent error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to initialize payment')
+    } finally {
+      setIsLoadingIntent(false)
+    }
+  }
+
+  const handlePaymentSuccess = () => {
+    clearCart()
+    toast.success('Payment successful! Redirecting...')
   }
 
   if (items.length === 0) {
@@ -78,8 +188,8 @@ export default function CheckoutPage() {
   }
 
   const subtotal = getTotal()
-  const tax = subtotal * 0.1
-  const shipping = 0 // Free shipping
+  const tax = subtotal * TAX_RATE
+  const shipping = SHIPPING_COST
   const total = subtotal + tax + shipping
 
   return (
@@ -98,247 +208,239 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Checkout Form */}
         <div className="lg:col-span-2">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Contact Information */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-            >
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-sm font-bold">
-                  1
+          {!formSubmitted ? (
+            <form onSubmit={handleFormSubmit} className="space-y-6">
+              {/* Contact Information */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
+              >
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-sm font-bold">
+                    1
+                  </div>
+                  Contact Information
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      required
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.email ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                      placeholder="you@example.com"
+                    />
+                    {formErrors.email && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+                    )}
+                  </div>
                 </div>
-                Contact Information
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="you@example.com"
-                  />
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
 
-            {/* Shipping Information */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-            >
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-sm font-bold">
-                  2
+              {/* Shipping Information */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
+              >
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-sm font-bold">
+                    2
+                  </div>
+                  <Truck className="w-5 h-5" />
+                  Shipping Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      name="firstName"
+                      required
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.firstName ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                    />
+                    {formErrors.firstName && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      name="lastName"
+                      required
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.lastName ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                    />
+                    {formErrors.lastName && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.lastName}</p>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      id="address"
+                      name="address"
+                      required
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.address ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                    />
+                    {formErrors.address && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.address}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      required
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.city ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                    />
+                    {formErrors.city && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      required
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.state ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                    />
+                    {formErrors.state && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
+                      ZIP Code *
+                    </label>
+                    <input
+                      type="text"
+                      id="zipCode"
+                      name="zipCode"
+                      required
+                      value={formData.zipCode}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        formErrors.zipCode ? 'border-red-500' : 'border-gray-200 focus:border-blue-500'
+                      }`}
+                      placeholder="12345"
+                    />
+                    {formErrors.zipCode && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.zipCode}</p>
+                    )}
+                  </div>
                 </div>
-                <Truck className="w-5 h-5" />
-                Shipping Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    required
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    required
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    required
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    required
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    id="state"
-                    name="state"
-                    required
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    id="zipCode"
-                    name="zipCode"
-                    required
-                    value={formData.zipCode}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
 
-            {/* Payment Information */}
+              {stockError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3"
+                >
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-red-600 text-sm whitespace-pre-line">{stockError}</div>
+                </motion.div>
+              )}
+
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={isLoadingIntent}
+                className="w-full py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-2xl transition-shadow font-bold text-lg disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoadingIntent ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Validating...
+                  </>
+                ) : (
+                  <>Continue to Payment</>
+                )}
+              </motion.button>
+            </form>
+          ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
               className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
             >
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-sm font-bold">
                   3
                 </div>
-                <CreditCard className="w-5 h-5" />
-                Payment Information
+                Payment
               </h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Card Number
-                  </label>
-                  <input
-                    type="text"
-                    id="cardNumber"
-                    name="cardNumber"
-                    required
-                    placeholder="1234 5678 9012 3456"
-                    value={formData.cardNumber}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      Expiry Date
-                    </label>
-                    <input
-                      type="text"
-                      id="expiryDate"
-                      name="expiryDate"
-                      required
-                      placeholder="MM/YY"
-                      value={formData.expiryDate}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
-                      CVV
-                    </label>
-                    <input
-                      type="text"
-                      id="cvv"
-                      name="cvv"
-                      required
-                      placeholder="123"
-                      value={formData.cvv}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
-                  <Lock className="w-5 h-5 text-green-600" />
-                  <span className="font-medium">Your payment information is secure and encrypted</span>
-                </div>
-              </div>
+              {clientSecret && (
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                      variables: {
+                        colorPrimary: '#3b82f6',
+                      },
+                    },
+                  }}
+                >
+                  <CheckoutForm amount={total} onSuccess={handlePaymentSuccess} />
+                </Elements>
+              )}
             </motion.div>
-
-            <motion.button
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={isProcessing}
-              className="w-full py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-2xl transition-shadow font-bold text-lg disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <AnimatePresence mode="wait">
-                {isProcessing ? (
-                  <motion.div
-                    key="processing"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing...
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="submit"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Place Order - ${total.toFixed(2)}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </form>
+          )}
         </div>
 
         {/* Order Summary */}
@@ -349,7 +451,8 @@ export default function CheckoutPage() {
             transition={{ delay: 0.3 }}
             className="bg-white rounded-2xl p-6 shadow-lg sticky top-20 border border-gray-100"
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <Tag className="w-6 h-6 text-blue-600" />
               Order Summary
             </h2>
 
@@ -376,7 +479,7 @@ export default function CheckoutPage() {
                     </h3>
                     <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                     <p className="text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      ${(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
                 </motion.div>
@@ -393,7 +496,7 @@ export default function CheckoutPage() {
                 <span className="font-semibold text-green-600">Free</span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>Tax (10%)</span>
+                <span>Tax ({(TAX_RATE * 100).toFixed(0)}%)</span>
                 <span className="font-semibold text-gray-900">${tax.toFixed(2)}</span>
               </div>
             </div>

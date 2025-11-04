@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
+import { TAX_RATE } from '@/lib/constants'
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, getTotal, clearCart } = useCartStore()
@@ -142,7 +143,7 @@ export default function CartPage() {
                     animate={{ scale: 1 }}
                     className="text-2xl font-bold text-gray-900"
                   >
-                    ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                    ${(item.price * item.quantity).toFixed(2)}
                   </motion.p>
                 </div>
               </motion.div>
@@ -192,14 +193,14 @@ export default function CartPage() {
                 <span className="font-semibold text-green-600">Free</span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>Tax (10%)</span>
+                <span>Tax ({(TAX_RATE * 100).toFixed(0)}%)</span>
                 <motion.span
                   key={getTotal()}
                   initial={{ scale: 1.2 }}
                   animate={{ scale: 1 }}
                   className="font-semibold text-gray-900"
                 >
-                  ${(getTotal() * 0.1).toFixed(2)}
+                  ${(getTotal() * TAX_RATE).toFixed(2)}
                 </motion.span>
               </div>
             </div>
@@ -213,7 +214,7 @@ export default function CartPage() {
                   animate={{ scale: 1 }}
                   className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
                 >
-                  ${(getTotal() * 1.1).toFixed(2)}
+                  ${(getTotal() * (1 + TAX_RATE)).toFixed(2)}
                 </motion.span>
               </div>
             </div>

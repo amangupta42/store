@@ -5,7 +5,7 @@ export interface Product {
   name: string
   slug: string
   description: string
-  price: string
+  price: number
   image: string
   stock: number
   featured: boolean
